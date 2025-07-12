@@ -30,6 +30,27 @@ After building:
 .build/release/ClipboardHero
 ```
 
+## Development
+
+### Build and run for debugging:
+```bash
+cd ClipboardHero
+swift build              # Debug build (default)
+.build/debug/ClipboardHero
+```
+
+### Or use swift run to build and run in one command:
+```bash
+swift run                # Debug mode
+swift run -c release     # Release mode
+```
+
+### Generate Xcode project for debugging:
+```bash
+swift package generate-xcodeproj
+# Then open the .xcodeproj file in Xcode
+```
+
 The app runs in the background with a menu bar icon.
 
 ## Architecture

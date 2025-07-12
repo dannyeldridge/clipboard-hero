@@ -62,6 +62,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             case 53: // ESC key
                 print("DEBUG: ESC key detected!")
                 window.orderOut(nil)
+                WindowManager.shared.restorePreviousApp()
                 return nil
                 
             case 125: // Down arrow
@@ -78,6 +79,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 print("DEBUG: Enter key detected")
                 NotificationCenter.default.post(name: NSNotification.Name("SelectCurrentItem"), object: nil)
                 return nil
+                
+            case 18: // 1 key with Cmd
+                if event.modifierFlags.contains(.command) {
+                    NotificationCenter.default.post(name: NSNotification.Name("SwitchToHistoryTab"), object: nil)
+                    return nil
+                }
+                return event
+                
+            case 19: // 2 key with Cmd
+                if event.modifierFlags.contains(.command) {
+                    NotificationCenter.default.post(name: NSNotification.Name("SwitchToFavoritesTab"), object: nil)
+                    return nil
+                }
+                return event
                 
             default:
                 return event

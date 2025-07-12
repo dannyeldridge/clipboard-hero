@@ -4,6 +4,7 @@ import Combine
 
 class ClipboardMonitor: ObservableObject {
     @Published var clipboardHistory: [ClipboardItem] = []
+    @Published var favoriteItems: [ClipboardItem] = []
     
     private var timer: Timer?
     private var lastChangeCount: Int
@@ -14,6 +15,7 @@ class ClipboardMonitor: ObservableObject {
         self.lastChangeCount = pasteboard.changeCount
         startMonitoring()
         loadHistory()
+        loadFavorites()
     }
     
     deinit {
@@ -96,6 +98,24 @@ class ClipboardMonitor: ObservableObject {
         saveHistory()
     }
     
+    func toggleFavorite(_ item: ClipboardItem) {
+        if let index = favoriteItems.firstIndex(where: { $0.id == item.id }) {
+            favoriteItems.remove(at: index)
+        } else {
+            favoriteItems.insert(item, at: 0)
+        }
+        saveFavorites()
+    }
+    
+    func removeFavorite(_ item: ClipboardItem) {
+        favoriteItems.removeAll { $0.id == item.id }
+        saveFavorites()
+    }
+    
+    func isFavorite(_ item: ClipboardItem) -> Bool {
+        return favoriteItems.contains { $0.id == item.id }
+    }
+    
     private func saveHistory() {
         if let encoded = try? JSONEncoder().encode(clipboardHistory) {
             UserDefaults.standard.set(encoded, forKey: "ClipboardHistory")
@@ -106,6 +126,19 @@ class ClipboardMonitor: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: "ClipboardHistory"),
            let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: data) {
             clipboardHistory = decoded
+        }
+    }
+    
+    private func saveFavorites() {
+        if let encoded = try? JSONEncoder().encode(favoriteItems) {
+            UserDefaults.standard.set(encoded, forKey: "ClipboardFavorites")
+        }
+    }
+    
+    private func loadFavorites() {
+        if let data = UserDefaults.standard.data(forKey: "ClipboardFavorites"),
+           let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: data) {
+            favoriteItems = decoded
         }
     }
 }

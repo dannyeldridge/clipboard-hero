@@ -5,18 +5,53 @@ struct ContentView: View {
     @State private var searchText = ""
     @State private var selectedIndex: Int = 0
     @State private var viewID = UUID()
+    @State private var selectedTab: Tab = .history
+    
+    enum Tab: CaseIterable {
+        case history, favorites
+        
+        var title: String {
+            switch self {
+            case .history: return "History"
+            case .favorites: return "Favorites"
+            }
+        }
+    }
     
     var filteredItems: [ClipboardItem] {
+        let sourceItems = selectedTab == .history ? clipboardMonitor.clipboardHistory : clipboardMonitor.favoriteItems
+        
         if searchText.isEmpty {
-            return clipboardMonitor.clipboardHistory
+            return sourceItems
         }
-        return clipboardMonitor.clipboardHistory.filter {
+        return sourceItems.filter {
             $0.displayText.localizedCaseInsensitiveContains(searchText)
         }
     }
     
     var body: some View {
         VStack(spacing: 0) {
+            // Tab bar
+            HStack(spacing: 0) {
+                ForEach(Tab.allCases, id: \.self) { tab in
+                    Text(tab.title)
+                        .font(.system(.body, weight: selectedTab == tab ? .semibold : .regular))
+                        .foregroundColor(selectedTab == tab ? .primary : .secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(selectedTab == tab ? Color.accentColor.opacity(0.1) : Color.clear)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            selectedTab = tab
+                            selectedIndex = 0
+                            searchText = ""
+                        }
+                }
+            }
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
             SearchBar(text: $searchText)
                 .padding()
             
@@ -29,11 +64,23 @@ struct ContentView: View {
                     ScrollView {
                         LazyVStack(spacing: 0) {
                             ForEach(Array(filteredItems.enumerated()), id: \.element.id) { index, item in
-                                ClipboardItemRow(item: item, isSelected: selectedIndex == index)
-                                    .id(index)
-                                    .onTapGesture {
-                                        selectItem(at: index)
+                                ClipboardItemRow(
+                                    item: item, 
+                                    isSelected: selectedIndex == index,
+                                    showStar: selectedTab == .history,
+                                    isFavorite: clipboardMonitor.isFavorite(item),
+                                    onToggleFavorite: {
+                                        if selectedTab == .history {
+                                            clipboardMonitor.toggleFavorite(item)
+                                        } else {
+                                            clipboardMonitor.removeFavorite(item)
+                                        }
                                     }
+                                )
+                                .id(index)
+                                .onTapGesture {
+                                    selectItem(at: index)
+                                }
                                 
                                 if item.id != filteredItems.last?.id {
                                     Divider()
@@ -81,6 +128,16 @@ struct ContentView: View {
             // Force view refresh by changing ID
             viewID = UUID()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToHistoryTab"))) { _ in
+            selectedTab = .history
+            selectedIndex = 0
+            searchText = ""
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToFavoritesTab"))) { _ in
+            selectedTab = .favorites
+            selectedIndex = 0
+            searchText = ""
+        }
     }
     
     private func selectItem(at index: Int) {
@@ -106,6 +163,7 @@ struct ContentView: View {
     
     private func hideWindow() {
         NSApp.keyWindow?.orderOut(nil)
+        WindowManager.shared.restorePreviousApp()
     }
 }
 
@@ -125,6 +183,7 @@ struct SearchBar: View {
                     if text.isEmpty {
                         if let window = NSApp.keyWindow {
                             window.orderOut(nil)
+                            WindowManager.shared.restorePreviousApp()
                         }
                     }
                 }
@@ -141,6 +200,9 @@ struct SearchBar: View {
 struct ClipboardItemRow: View {
     let item: ClipboardItem
     let isSelected: Bool
+    let showStar: Bool
+    let isFavorite: Bool
+    let onToggleFavorite: () -> Void
     
     var body: some View {
         Group {
@@ -154,6 +216,24 @@ struct ClipboardItemRow: View {
                         .cornerRadius(8)
                         .padding(.vertical, 8)
                     Spacer()
+                    
+                    if showStar {
+                        Button(action: onToggleFavorite) {
+                            Image(systemName: isFavorite ? "star.fill" : "star")
+                                .foregroundColor(isFavorite ? .yellow : .gray)
+                                .font(.system(size: 16))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 8)
+                    } else {
+                        Button(action: onToggleFavorite) {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
+                                .font(.system(size: 16))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 8)
+                    }
                 }
             } else {
                 HStack {
@@ -164,6 +244,24 @@ struct ClipboardItemRow: View {
                     }
                     .padding(.vertical, 8)
                     Spacer()
+                    
+                    if showStar {
+                        Button(action: onToggleFavorite) {
+                            Image(systemName: isFavorite ? "star.fill" : "star")
+                                .foregroundColor(isFavorite ? .yellow : .gray)
+                                .font(.system(size: 16))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 8)
+                    } else {
+                        Button(action: onToggleFavorite) {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
+                                .font(.system(size: 16))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 8)
+                    }
                 }
             }
         }
