@@ -6,6 +6,9 @@ struct ContentView: View {
     @State private var selectedIndex: Int = 0
     @State private var viewID = UUID()
     @State private var selectedTab: Tab = .history
+    @State private var showingEditor = false
+    @State private var editingItem: ClipboardItem? = nil
+    @State private var editingText = ""
     
     enum Tab: CaseIterable {
         case history, favorites
@@ -75,6 +78,9 @@ struct ContentView: View {
                                         } else {
                                             clipboardMonitor.removeFavorite(item)
                                         }
+                                    },
+                                    onStartEditing: {
+                                        startEditing(item)
                                     }
                                 )
                                 .id(index)
@@ -138,6 +144,38 @@ struct ContentView: View {
             selectedIndex = 0
             searchText = ""
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("CreateNewClipboardItem"))) { _ in
+            clipboardMonitor.createNewItem()
+            selectedTab = .history
+            selectedIndex = 0
+            if let newItem = clipboardMonitor.clipboardHistory.first {
+                startEditing(newItem)
+            }
+        }
+        .overlay(
+            // Modal editor
+            Group {
+                if showingEditor, let item = editingItem {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            cancelEditing()
+                        }
+                    
+                    ClipboardItemEditor(
+                        isPresented: $showingEditor,
+                        editingText: $editingText,
+                        item: item,
+                        onSave: {
+                            saveEditedItem()
+                        },
+                        onCancel: {
+                            cancelEditing()
+                        }
+                    )
+                }
+            }
+        )
     }
     
     private func selectItem(at index: Int) {
@@ -164,6 +202,26 @@ struct ContentView: View {
     private func hideWindow() {
         NSApp.keyWindow?.orderOut(nil)
         WindowManager.shared.restorePreviousApp()
+    }
+    
+    private func startEditing(_ item: ClipboardItem) {
+        editingItem = item
+        editingText = item.content
+        showingEditor = true
+        NotificationCenter.default.post(name: NSNotification.Name("EditingModeStarted"), object: nil)
+    }
+    
+    private func saveEditedItem() {
+        guard let item = editingItem else { return }
+        clipboardMonitor.updateItem(item, withContent: editingText)
+        cancelEditing()
+    }
+    
+    private func cancelEditing() {
+        showingEditor = false
+        editingItem = nil
+        editingText = ""
+        NotificationCenter.default.post(name: NSNotification.Name("EditingModeEnded"), object: nil)
     }
 }
 
@@ -203,6 +261,7 @@ struct ClipboardItemRow: View {
     let showStar: Bool
     let isFavorite: Bool
     let onToggleFavorite: () -> Void
+    let onStartEditing: () -> Void
     
     var body: some View {
         Group {
@@ -238,12 +297,30 @@ struct ClipboardItemRow: View {
             } else {
                 HStack {
                     VStack(alignment: .leading) {
-                        Text(item.truncatedText)
-                            .font(.system(.body, design: .monospaced))
-                            .lineLimit(2)
+                        if item.content.isEmpty {
+                            Text("Empty item - click pencil to edit")
+                                .font(.system(.body, design: .monospaced))
+                                .foregroundColor(.secondary)
+                                .italic()
+                        } else {
+                            Text(item.truncatedText)
+                                .font(.system(.body, design: .monospaced))
+                                .lineLimit(2)
+                        }
                     }
                     .padding(.vertical, 8)
                     Spacer()
+                    
+                    // Edit button for text items
+                    if item.type == .text {
+                        Button(action: onStartEditing) {
+                            Image(systemName: "pencil")
+                                .foregroundColor(.blue)
+                                .font(.system(size: 16))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 8)
+                    }
                     
                     if showStar {
                         Button(action: onToggleFavorite) {
@@ -312,5 +389,76 @@ struct BottomBar: View {
             .foregroundColor(.red)
         }
         .padding()
+    }
+}
+
+struct ClipboardItemEditor: View {
+    @Binding var isPresented: Bool
+    @Binding var editingText: String
+    let item: ClipboardItem
+    let onSave: () -> Void
+    let onCancel: () -> Void
+    @FocusState private var textFieldFocused: Bool
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("Edit Clipboard Item")
+                    .font(.headline)
+                Spacer()
+                Button("✕") {
+                    onCancel()
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.secondary)
+            }
+            
+            ZStack(alignment: .topLeading) {
+                ScrollView {
+                    TextField("Enter text...", text: $editingText, axis: .vertical)
+                        .font(.system(.body, design: .monospaced))
+                        .focused($textFieldFocused)
+                        .padding(8)
+                        .lineLimit(1...20)
+                        .onSubmit {
+                            onSave()
+                        }
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                )
+            }
+            .frame(minHeight: 120, maxHeight: 300)
+            
+            Text("Press Enter to save, Shift+Enter for new line")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            HStack {
+                Button("Cancel") {
+                    onCancel()
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.secondary)
+                .keyboardShortcut(.escape)
+                
+                Spacer()
+                
+                Button("Save") {
+                    onSave()
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.return, modifiers: .command)
+            }
+        }
+        .padding(20)
+        .frame(width: 400, height: 300)
+        .background(Color(NSColor.windowBackgroundColor))
+        .cornerRadius(12)
+        .shadow(radius: 20)
+        .onAppear {
+            textFieldFocused = true
+        }
     }
 }

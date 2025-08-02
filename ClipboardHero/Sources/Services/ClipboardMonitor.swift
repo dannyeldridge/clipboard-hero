@@ -116,6 +116,35 @@ class ClipboardMonitor: ObservableObject {
         return favoriteItems.contains { $0.id == item.id }
     }
     
+    func createNewItem() {
+        let newItem = ClipboardItem(content: "", type: .text)
+        DispatchQueue.main.async {
+            self.clipboardHistory.insert(newItem, at: 0)
+            
+            if self.clipboardHistory.count > self.preferences.maxHistorySize {
+                self.clipboardHistory = Array(self.clipboardHistory.prefix(self.preferences.maxHistorySize))
+            }
+            
+            self.saveHistory()
+        }
+    }
+    
+    func updateItem(_ item: ClipboardItem, withContent content: String) {
+        let updatedItem = ClipboardItem(id: item.id, content: content, type: .text, timestamp: item.timestamp)
+        
+        // Update in clipboard history if it exists there
+        if let index = clipboardHistory.firstIndex(where: { $0.id == item.id }) {
+            clipboardHistory[index] = updatedItem
+            saveHistory()
+        }
+        
+        // Update in favorites if it exists there
+        if let index = favoriteItems.firstIndex(where: { $0.id == item.id }) {
+            favoriteItems[index] = updatedItem
+            saveFavorites()
+        }
+    }
+    
     private func saveHistory() {
         if let encoded = try? JSONEncoder().encode(clipboardHistory) {
             UserDefaults.standard.set(encoded, forKey: "ClipboardHistory")

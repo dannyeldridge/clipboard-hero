@@ -71,9 +71,3 @@ swift package generate-xcodeproj
 - **SwiftUI Views**: Modern UI for both main window and menu bar
 - **UserDefaults**: Persistent storage for clipboard history
 
-## Next Steps
-
-- Add keyboard shortcuts (Cmd+Shift+V)
-- Support for images
-- Preferences window
-- App icon design

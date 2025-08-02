@@ -23,6 +23,14 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
         self.imageData = imageData
     }
     
+    init(id: UUID, content: String, type: ItemType, timestamp: Date, imageData: Data? = nil) {
+        self.id = id
+        self.content = content
+        self.type = type
+        self.timestamp = timestamp
+        self.imageData = imageData
+    }
+    
     var displayText: String {
         switch type {
         case .text:

@@ -41,6 +41,7 @@ struct ClipboardManagerApp: App {
 class AppDelegate: NSObject, NSApplicationDelegate {
     var windowManager: WindowManager?
     var escapeMonitor: Any?
+    var isEditingMode = false
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         let preferences = Preferences.shared
@@ -52,9 +53,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Add global key monitor for ESC, arrows, and enter
         escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             
-            // Only handle keys when the main window is active
+            // Only handle keys when the main window is active and no modal is showing
             guard let window = NSApp.keyWindow,
-                  !window.title.contains("Preferences") else {
+                  !window.title.contains("Preferences"),
+                  !self.isEditingMode else {
                 return event
             }
             
@@ -94,12 +96,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 return event
                 
+            case 45: // N key with Cmd
+                if event.modifierFlags.contains(.command) {
+                    NotificationCenter.default.post(name: NSNotification.Name("CreateNewClipboardItem"), object: nil)
+                    return nil
+                }
+                return event
+                
             default:
                 return event
             }
         }
         
         print("DEBUG: ESC key monitor installed")
+        
+        // Listen for editing mode notifications
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("EditingModeStarted"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            self.isEditingMode = true
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("EditingModeEnded"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            self.isEditingMode = false
+        }
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
