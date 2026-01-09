@@ -37,15 +37,18 @@ class ClipboardMonitor: ObservableObject {
         "com.apple.Passwords",
         // Banking and finance apps (common patterns)
         "com.apple.AppStore", // May contain payment info during purchases
-        // Terminal and SSH (may contain sensitive commands/output)
+        // VPN and security tools
+        "com.apple.systempreferences", // Contains password fields
+    ]
+
+    /// Terminal and SSH apps (user-configurable via preferences)
+    private let terminalBundleIDs: Set<String> = [
         "com.apple.Terminal",
         "com.googlecode.iterm2",
         "co.zeit.hyper",
         "com.github.wez.wezterm",
         "net.kovidgoyal.kitty",
         "com.panic.Transmit",
-        // VPN and security tools
-        "com.apple.systempreferences", // Contains password fields
     ]
 
     init() {
@@ -77,6 +80,13 @@ class ClipboardMonitor: ObservableObject {
               let bundleID = frontmostApp.bundleIdentifier else {
             return false
         }
+
+        // Check if it's a terminal app and if monitoring is disabled
+        if terminalBundleIDs.contains(bundleID) {
+            return !preferences.monitorTerminals
+        }
+
+        // Check other blocked apps
         return blockedBundleIDs.contains(bundleID)
     }
 

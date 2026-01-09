@@ -64,6 +64,17 @@ struct PreferencesView: View {
                 .padding(.top, 5)
             }
             
+            GroupBox("Security") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle("Monitor clipboard in terminals", isOn: $preferences.monitorTerminals)
+
+                    Text("When enabled, clipboard changes from Terminal, iTerm2, and other terminal apps will be captured. Disable this to prevent sensitive commands or output from being saved.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top, 5)
+            }
+
             GroupBox("Appearance") {
                 Toggle("Show in Dock", isOn: $preferences.showInDock)
                     .onChange(of: preferences.showInDock) { newValue in
@@ -71,11 +82,11 @@ struct PreferencesView: View {
                     }
                     .padding(.top, 5)
             }
-            
+
             Spacer()
         }
         .padding(30)
-        .frame(width: 450, height: 400)
+        .frame(width: 450, height: 500)
     }
     
     
